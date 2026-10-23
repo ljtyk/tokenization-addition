@@ -1,0 +1,7 @@
+=== start k1-rev_irope_control_s0 09:49:41
+=== end k1-rev_irope_control_s0 10:35:30 exit 0 | late_avg over 7 checks: ema_indist_acc 1.000 ema_ood_acc 1.000 ema_far_ood_acc 1.000
+=== start k1-rev_irope_control_s1 10:35:30
+=== end k1-rev_irope_control_s1 10:49:58 exit 0 | late_avg over 7 checks: ema_indist_acc 0.999 ema_ood_acc 0.989 ema_far_ood_acc 0.970
+=== start k1-rev_irope_control_s2 10:49:58
+=== end k1-rev_irope_control_s2 11:06:15 exit 0 | late_avg over 7 checks: ema_indist_acc 1.000 ema_ood_acc 0.999 ema_far_ood_acc 1.000
+=== all done 11:06:15

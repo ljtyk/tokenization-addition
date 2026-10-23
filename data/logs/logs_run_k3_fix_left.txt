@@ -1,0 +1,26 @@
+=== start k3-left-rev_irc-is4-decay-sq-snc_s0 11:09:42
+=== end k3-left-rev_irc-is4-decay-sq-snc_s0 11:35:34 exit 0 | late_avg over 9 checks: ema_indist_acc 0.993 ema_ood_acc 0.567 ema_far_ood_acc 0.456
+=== start k3-left-rev_irc-is4-decay-sq-snc_s1 11:35:34
+=== end k3-left-rev_irc-is4-decay-sq-snc_s1 12:00:39 exit 0 | late_avg over 9 checks: ema_indist_acc 0.999 ema_ood_acc 0.176 ema_far_ood_acc 0.080
+=== start k3-left-rev_irc-is4-decay-sq-snc_s2 12:00:39
+=== end k3-left-rev_irc-is4-decay-sq-snc_s2 12:25:45 exit 0 | late_avg over 9 checks: ema_indist_acc 1.000 ema_ood_acc 0.443 ema_far_ood_acc 0.306
+=== probing reach 12:25:45
+random-digit problems, decode budget 208 tokens; accuracy by long operand length L
+run                                              26     40     60     80    100    150    200
+k3-left-rev_irc-is4-decay-sq-snc_s0            0.39   0.32   0.37   0.33   0.29   0.33   0.21
+k3-left-rev_irc-is4-decay-sq-snc_s1            0.00   0.00   0.29   0.01   0.00   0.17   0.01
+k3-left-rev_irc-is4-decay-sq-snc_s2            0.19   0.08   0.51   0.31   0.02   0.37   0.16
+=== long-problem errors 12:27:05
+k3-left-rev_irc-is4-decay-sq-snc_s0 L=100: accuracy 0.34 | errors {'wrong length': 98, '3+ wrong digits': 1} | first wrong at units digit: 0/99, median first wrong place 4
+    accuracy by longest carry run: 0-3: 0.86 (n=59), 4-7: 0.00 (n=69), 8-11: 0.00 (n=19), 12+: 0.00 (n=3)
+k3-left-rev_irc-is4-decay-sq-snc_s0 L=150: accuracy 0.28 | errors {'3+ wrong digits': 73, 'wrong length': 35} | first wrong at units digit: 0/108, median first wrong place 10
+    accuracy by longest carry run: 0-3: 0.91 (n=46), 4-7: 0.00 (n=73), 8-11: 0.00 (n=27), 12+: 0.00 (n=4)
+k3-left-rev_irc-is4-decay-sq-snc_s1 L=100: accuracy 0.00 | errors {'wrong length': 128, '3+ wrong digits': 21, '2 wrong digits': 1} | first wrong at units digit: 17/150, median first wrong place 4
+    accuracy by longest carry run: 0-3: 0.00 (n=59), 4-7: 0.00 (n=69), 8-11: 0.00 (n=19), 12+: 0.00 (n=3)
+k3-left-rev_irc-is4-decay-sq-snc_s1 L=150: accuracy 0.09 | errors {'wrong length': 74, '3+ wrong digits': 54, 'single carry error': 6, '2 wrong digits': 2} | first wrong at units digit: 32/136, median first wrong place 13
+    accuracy by longest carry run: 0-3: 0.28 (n=46), 4-7: 0.00 (n=73), 8-11: 0.04 (n=27), 12+: 0.00 (n=4)
+k3-left-rev_irc-is4-decay-sq-snc_s2 L=100: accuracy 0.01 | errors {'wrong length': 107, '2 wrong digits': 5, '3+ wrong digits': 35, 'single carry error': 1} | first wrong at units digit: 0/148, median first wrong place 4
+    accuracy by longest carry run: 0-3: 0.03 (n=59), 4-7: 0.00 (n=69), 8-11: 0.00 (n=19), 12+: 0.00 (n=3)
+k3-left-rev_irc-is4-decay-sq-snc_s2 L=150: accuracy 0.31 | errors {'2 wrong digits': 14, '3+ wrong digits': 44, 'single carry error': 12, 'wrong length': 33} | first wrong at units digit: 0/103, median first wrong place 37
+    accuracy by longest carry run: 0-3: 0.98 (n=46), 4-7: 0.03 (n=73), 8-11: 0.00 (n=27), 12+: 0.00 (n=4)
+=== all done 12:27:31

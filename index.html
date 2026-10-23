@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Tokenization Decides Whether a Transformer Can Add</title>
+<meta name="description" content="A controlled grid of digit tokenizations (chunk size, cut, order) and position encodings for a small addition transformer: which ones extend past the training length, and why.">
+<style>
+
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #f6f3ec;
+    --surface: #fffdf8;
+    --surface-2: #efeade;
+    --ink: #22262e;
+    --ink-soft: #565c69;
+    --ink-faint: #8a8d92;
+    --accent: #1e6e76;
+    --accent-ink: #ffffff;
+    --fail: #a8431f;
+    --ok: #2f7a4f;
+    --line: rgba(34,38,46,0.14);
+    --line-soft: rgba(34,38,46,0.07);
+    --shadow: 0 1px 2px rgba(34,38,46,0.06), 0 8px 24px rgba(34,38,46,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1d22;
+      --surface: #24272e;
+      --surface-2: #2c2f37;
+      --ink: #ece8de;
+      --ink-soft: #adaaa2;
+      --ink-faint: #7d7f85;
+      --accent: #6bc9d1;
+      --accent-ink: #12292c;
+      --fail: #e08a63;
+      --ok: #7fc79b;
+      --line: rgba(236,232,222,0.14);
+      --line-soft: rgba(236,232,222,0.07);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1d22;
+    --surface: #24272e;
+    --surface-2: #2c2f37;
+    --ink: #ece8de;
+    --ink-soft: #adaaa2;
+    --ink-faint: #7d7f85;
+    --accent: #6bc9d1;
+    --accent-ink: #12292c;
+    --fail: #e08a63;
+    --ok: #7fc79b;
+    --line: rgba(236,232,222,0.14);
+    --line-soft: rgba(236,232,222,0.07);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+    font-size: 19px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  .page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 7rem;
+  }
+  .wide {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ---------- masthead ---------- */
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 1.1rem;
+  }
+  h1.title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(2.6rem, 6vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0 0 1.4rem;
+    text-wrap: balance;
+  }
+  .dek {
+    font-size: 1.28rem;
+    color: var(--ink-soft);
+    max-width: 34em;
+    margin: 0 0 2.2rem;
+    text-wrap: balance;
+  }
+  .byline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-faint);
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- headline stat pair ---------- */
+  .stat-duel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 2.6rem 0;
+  }
+  .stat-cell {
+    background: var(--surface);
+    padding: 1.9rem 1.6rem;
+  }
+  .stat-cell .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.7rem;
+  }
+  .stat-cell .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 3rem;
+    line-height: 1;
+  }
+  .stat-cell.fail .num { color: var(--fail); }
+  .stat-cell.ok .num { color: var(--ok); }
+  .stat-cell .sub {
+    font-family: 'Newsreader', serif;
+    font-size: 15.5px;
+    color: var(--ink-soft);
+    margin-top: 0.6rem;
+  }
+
+  /* ---------- prose ---------- */
+  h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.85rem;
+    letter-spacing: -0.005em;
+    margin: 3.4rem 0 1.1rem;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.28rem;
+    margin: 2.2rem 0 0.8rem;
+  }
+  p { margin: 0 0 1.3rem; }
+  strong { font-weight: 600; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.86em;
+    background: var(--surface-2);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  .lede::first-letter {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 3.4em;
+    float: left;
+    line-height: 0.85;
+    padding: 0.04em 0.09em 0 0;
+    color: var(--accent);
+  }
+
+  /* ---------- section rule ---------- */
+  .ledger {
+    height: 1px;
+    margin: 3.6rem 0;
+    background-image: repeating-linear-gradient(90deg, var(--line) 0, var(--line) 6px, transparent 6px, transparent 14px);
+  }
+
+  /* ---------- lesson blocks ---------- */
+  .lesson {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0.9rem;
+    margin: 2.6rem 0;
+  }
+  .lesson .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+    padding-top: 0.15em;
+  }
+  .lesson h3 { margin: 0 0 0.6rem; }
+  .lesson .body p:last-child { margin-bottom: 0; }
+
+  /* ---------- aside / margin note ---------- */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.6rem 0;
+    box-shadow: var(--shadow);
+  }
+  .note .note-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .note p { font-size: 0.94em; margin-bottom: 0.6rem; }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---------- data table ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 1.8rem 0;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 480px; }
+  caption {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.9rem 1.1rem 0;
+  }
+  th, td {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    padding: 0.65rem 1.1rem;
+    text-align: right;
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.hi { color: var(--ok); font-weight: 600; }
+  td.lo { color: var(--fail); font-weight: 600; }
+  tr.split td { border-top: 2px dashed var(--line); }
+
+  /* ---------- pipeline diagram ---------- */
+  .diagram {
+    margin: 1.8rem 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .diagram svg { width: 100%; height: auto; display: block; }
+
+  /* ---------- verdict box ---------- */
+  .verdict {
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 1.8rem 2rem;
+    margin: 2.2rem 0;
+  }
+  .verdict .note-label { color: var(--ink-soft); }
+  .verdict h3 { margin-top: 0; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 17px; }
+    .stat-duel { grid-template-columns: 1fr; }
+    .lesson { grid-template-columns: 1fr; }
+    .lesson .n { padding-top: 0; }
+  }
+
+
+  :root { --s1: #00849c; --s2: #c4501c; --ctx: #8a8d92; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --s1: #1fa3ae; --s2: #d9703e; --ctx: #7d7f85; } }
+  :root[data-theme="dark"] { --s1: #1fa3ae; --s2: #d9703e; --ctx: #7d7f85; }
+  svg.chart { width: 100%; height: auto; display: block; margin: 0.4rem 0 1.4rem; overflow: visible; }
+  svg.chart .grid { stroke: var(--line-soft); stroke-width: 1; }
+  svg.chart .axis { stroke: var(--line); stroke-width: 1; }
+  svg.chart .ref { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+  svg.chart .shade { fill: var(--ink-faint); opacity: 0.10; }
+  svg.chart .tick { fill: var(--ink-faint); font: 11px 'JetBrains Mono', monospace; }
+  svg.chart .shade-label { fill: var(--ink-soft); }
+  svg.chart .axis-label { fill: var(--ink-soft); font: 12px 'Newsreader', serif; }
+  svg.chart .direct { fill: var(--ink-soft); font: 12px 'Newsreader', serif; }
+  svg.chart .series { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+  svg.chart .dot { stroke: var(--surface); stroke-width: 2; }
+  svg.chart .hit { fill: transparent; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--ink-soft); margin-top: 0.6rem; }
+  .legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { display: inline-block; width: 18px; height: 0; }
+  .fig-cap { font-size: 0.88rem; color: var(--ink-soft); margin: -0.6rem 0 1.6rem; }
+  ol.steps > li { margin-bottom: 0.9rem; }
+
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="kicker">research notebook &middot; tokenization and arithmetic in transformers</div>
+  <h1 class="title">How Tokenization Decides Whether a Transformer Can Add</h1>
+  <p class="dek">The same small transformer, trained on the same additions, either extends far past its training length or fails soon after it, depending only on how the numbers are cut into tokens, the order the answer is written in, and whether position follows place value. A controlled grid of 16 tokenization &times; encoding cells, three seeds each, at matched training compute.</p>
+  <div class="byline">
+    <span>research log</span>
+    <span>trained on operands of &le; 10 digits</span>
+    <span>written with Claude (Anthropic) as research assistant</span>
+  </div>
+
+  <div class="stat-duel">
+    <div class="stat-cell fail">
+      <div class="label">GPT-style tokens (3-digit chunks cut from the left), forward</div>
+      <div class="num">0%</div>
+      <div class="sub">average exact-match at 19&ndash;21 digits, with the place-value encoding; 98% in-distribution.</div>
+    </div>
+    <div class="stat-cell ok">
+      <div class="label">Same chunks cut from the right, written units-first</div>
+      <div class="num">98%</div>
+      <div class="sub">at 19&ndash;21 digits, same model, data and compute. Only the cut and the order changed.</div>
+    </div>
+  </div>
+
+  <p class="lede">How numbers are split into tokens is usually treated as a preprocessing detail. For arithmetic it is not: it decides which algorithm is easy to learn, and whether that algorithm keeps working on numbers longer than any seen in training. This log measures that directly, with everything else held fixed.</p>
+
+  <div class="ledger"></div>
+
+  <h2>The setup</h2>
+  <p>Addition problems with operands of up to 10 digits, freshly sampled, 30% of them built to contain long carry chains. Small GPT-style decoders (6 layers, 384 wide, ~10.6M parameters), EMA weights, three seeds per cell. Each tokenization is three independent choices:</p>
+  <ul>
+    <li><strong>Chunk size k:</strong> 1 or 3 digits per token, or GPT-2's BPE (its 994 digit tokens remapped to a compact vocabulary so model size matches).</li>
+    <li><strong>Cut:</strong> chunk boundaries counted from the units digit (<em>right-cut</em>: chunk i always holds places 3i&ndash;3i+2) or from the leading digit (<em>left-cut</em>, as GPT-style tokenizers do: boundaries depend on the number's length).</li>
+    <li><strong>Order:</strong> the answer written normally (most significant first) or <em>reversed</em> (units first, so each answer chunk depends only on its own column and the carry already written).</li>
+  </ul>
+  <p>Two position encodings: <em>standard</em> (rotary positions stretched by a random factor 1&ndash;4 per training sequence) and <em>place-value</em> (half of the rotary pairs driven by each chunk's index within its own number, also stretched, a form of position coupling). Cells are compared at matched training compute (~4.3&middot;10<sup>15</sup> FLOPs: 16k steps for k=1, 31k for GPT-2, 33k for k=3, since longer chunks mean shorter sequences). Test tiers: in-distribution (1&ndash;10 digits), a gap tier (11&ndash;13), and two out-of-distribution tiers (19&ndash;21, 24&ndash;26).</p>
+
+  <h2>Results</h2>
+  <div class="table-wrap"><table><caption>Exact-match accuracy per tier, seeds 0 / 1 / 2 (final EMA weights)</caption><thead><tr><th>tokenization</th><th>order</th><th>encoding</th><th>in-dist</th><th>11&ndash;13</th><th>19&ndash;21</th><th>24&ndash;26</th></tr></thead><tbody><tr><td><strong>k=1</strong></td><td>reversed</td><td>place-value</td><td>1.00 / 1.00 / 1.00</td><td>1.00 / 1.00 / 1.00</td><td><strong class="hi">1.00 / .99 / 1.00</strong></td><td><strong class="hi">1.00 / .92 / 1.00</strong></td></tr><tr><td>k=1</td><td>reversed</td><td>standard</td><td>1.00 / 1.00 / 1.00</td><td>.99 / .99 / 1.00</td><td>.07 / .01 / .04</td><td>0 / 0 / &lt;.01</td></tr><tr><td>k=1</td><td>forward</td><td>place-value</td><td>.97 / .97 / .99</td><td>.82 / .86 / .90</td><td>0 / .14 / &lt;.01</td><td>0 / .04 / 0</td></tr><tr><td>k=1</td><td>forward</td><td>standard</td><td>.99 / .99 / .99</td><td>.94 / .94 / .95</td><td>0 / .01 / &lt;.01</td><td>0 / 0 / 0</td></tr><tr><td><strong>k=3 right-cut</strong></td><td>reversed</td><td>place-value</td><td>1.00 / 1.00 / 1.00</td><td>1.00 / 1.00 / 1.00</td><td><strong class="hi">1.00 / .96 / 1.00</strong></td><td><strong class="hi">.99 / .93 / 1.00</strong></td></tr><tr><td>k=3 right-cut</td><td>reversed</td><td>standard</td><td>1.00 / 1.00 / 1.00</td><td>.39 / .28 / .26</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>k=3 right-cut</td><td>forward</td><td>place-value</td><td>.98 / .99 / .98</td><td>.44 / .28 / .32</td><td>&lt;.01 / 0 / &lt;.01</td><td>0 / 0 / 0</td></tr><tr><td>k=3 right-cut</td><td>forward</td><td>standard</td><td>.99 / .99 / .74</td><td>.22 / .25 / .15</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>k=3 left-cut (GPT-style)</td><td>forward</td><td>place-value</td><td>.98 / .99 / .99</td><td>.03 / .07 / .05</td><td>.01 / 0 / 0</td><td>.01 / &lt;.01 / 0</td></tr><tr><td>k=3 left-cut</td><td>forward</td><td>standard</td><td>.99 / .99 / .98</td><td>.24 / .16 / .12</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>k=3 left-cut</td><td>reversed</td><td>place-value</td><td>1.00 / .99 / .99</td><td>.31 / .51 / .52</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>k=3 left-cut</td><td>reversed</td><td>standard</td><td>1.00 / 1.00 / 1.00</td><td>.01 / .15 / .12</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>GPT-2 BPE</td><td>reversed</td><td>place-value</td><td>.90 / .89 / .92</td><td>.62 / .65 / .70</td><td>.03 / .06 / .11</td><td>0 / .01 / .01</td></tr><tr><td>GPT-2 BPE</td><td>reversed</td><td>standard</td><td>.92 / .91 / .93</td><td>.20 / .22 / .57</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>GPT-2 BPE</td><td>forward</td><td>place-value</td><td>.79 / .78 / .80</td><td>.30 / .35 / .36</td><td>0 / 0 / .01</td><td>0 / 0 / 0</td></tr><tr><td>GPT-2 BPE</td><td>forward</td><td>standard</td><td>.76 / .80 / .77</td><td>.29 / .28 / .25</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr></tbody></table></div>
+
+  <h2>What the grid says</h2>
+  <ol class="steps">
+    <li><strong>Extending past the training length takes three things together:</strong> reversed order, chunks aligned with place value (k=1, or right-cut k=3), and a place-value position signal. Remove any one and accuracy beyond the training length is near zero, often with perfect in-distribution accuracy. Only the two cells with all three extend.</li>
+    <li><strong>Order.</strong> Writing the most significant digit first learns in-distribution but fails within a few digits of the training length, for every tokenization: the first answer token needs the carry from every column below it.</li>
+    <li><strong>Cut.</strong> Left-cut fails to extend even when reversed. Its chunk boundaries move with each number's length, so the rule "add chunk i of each operand" is a different rule for every pair of lengths.</li>
+    <li><strong>BPE.</strong> GPT-2's tokenizer is worst on both counts: it never reaches the fixed-chunk cells' in-distribution accuracy and barely extends in either order. Its splits are irregular (<code>1034567</code> &rarr; <code>[103][45][67]</code>).</li>
+    <li><strong>The place-value signal only helps when chunks align with place value.</strong> With misaligned chunks it is useless or harmful.</li>
+  </ol>
+  <p>This matches what Singh &amp; Strouse found in frontier models: forcing GPT-3.5 and GPT-4 to group digits from the right (with commas) made their addition much more accurate, which they trace to alignment between the tokens of the operands and the answer.</p>
+
+  <h2>How far the good cells reach</h2>
+  <div class="table-wrap"><table><caption>Accuracy on random problems far past the tiers, seeds 0 / 1 / 2 (place-value encoding)</caption><thead><tr><th>cell</th><th>26 digits</th><th>40</th><th>50</th><th>60</th></tr></thead><tbody><tr><td>k=1 reversed, place-value</td><td>1.00 / .93 / 1.00</td><td>1.00 / .62 / 1.00</td><td>.80 / .23 / .83</td><td>.38 / .03 / .05</td></tr><tr><td>k=3 right-cut reversed, place-value</td><td>1.00 / .90 / .96</td><td>.40 / .41 / .01</td><td>.11 / .01 / 0</td><td>0 / 0 / 0</td></tr></tbody></table></div>
+  <p>k=3 reaches <em>fewer</em> digits than k=1, not three times as many. The limit is not sequence length but coverage: the place-value rotation has only seen index differences up to about 4 chunks &times; the stretch of 4 during training, and reach ends near the edge of what it has seen. Reach depends on tokenization through how many chunks training numbers contain.</p>
+
+  <div class="ledger"></div>
+
+  <h2>With a better position encoding</h2>
+  <p>A companion log (<a href="https://ljtyk.github.io/rope-aliasing/">Why Rotary Embeddings Stop Extrapolating</a>) traced the coverage limit to rotary aliasing and fixed it for k=1: 2D rotary positions (row &times; column), a fixed multiplicative decay with column distance, and a position-free attention sink took k=1 to 100% at 200 digits on every seed. The same fix, trained from scratch on k=3 at the same compute:</p>
+  <div class="legend"><span class="lg"><span class="sw" style="border-top: 2px solid var(--ctx)"></span>right-cut, index-RoPE + stretch (mean)</span><span class="lg"><span class="sw" style="border-top: 2px solid var(--s1)"></span>right-cut, 2D RoPE + decay + position-free sink</span><span class="lg"><span class="sw" style="border-top: 2px dashed var(--s2)"></span>left-cut, same fix (mean)</span></div><svg class="chart" viewBox="0 0 680 300" role="img" aria-label="k=3 reach: index-RoPE falls to zero by 60 digits; with the attention fix two right-cut seeds stay near 100% to 200 digits; left-cut stays low.">
+<line x1="52" x2="552" y1="256.0" y2="256.0" class="grid"/>
+<text x="44" y="260.0" class="tick" text-anchor="end">0%</text>
+<line x1="52" x2="552" y1="196.7" y2="196.7" class="grid"/>
+<text x="44" y="200.7" class="tick" text-anchor="end">25%</text>
+<line x1="52" x2="552" y1="137.4" y2="137.4" class="grid"/>
+<text x="44" y="141.4" class="tick" text-anchor="end">50%</text>
+<line x1="52" x2="552" y1="78.1" y2="78.1" class="grid"/>
+<text x="44" y="82.1" class="tick" text-anchor="end">75%</text>
+<line x1="52" x2="552" y1="18.7" y2="18.7" class="grid"/>
+<text x="44" y="22.7" class="tick" text-anchor="end">100%</text>
+<text x="52.0" y="274" class="tick" text-anchor="middle">26</text>
+<text x="92.2" y="274" class="tick" text-anchor="middle">40</text>
+<text x="149.7" y="274" class="tick" text-anchor="middle">60</text>
+<text x="207.2" y="274" class="tick" text-anchor="middle">80</text>
+<text x="264.6" y="274" class="tick" text-anchor="middle">100</text>
+<text x="408.3" y="274" class="tick" text-anchor="middle">150</text>
+<text x="552.0" y="274" class="tick" text-anchor="middle">200</text>
+<line x1="52" x2="552" y1="256" y2="256" class="axis"/>
+<text x="302.0" y="294" class="axis-label" text-anchor="middle">operand length (digits); trained on ≤ 10</text>
+<text x="14" y="135.0" class="axis-label" text-anchor="middle" transform="rotate(-90 14 135.0)">exact-match accuracy</text>
+<path d="M52.0,30.2 L92.2,191.0 L149.7,256.0 L207.2,256.0 L264.6,256.0 L408.3,256.0 L552.0,256.0" class="series" style="stroke: var(--ctx); stroke-width: 2"/>
+<circle cx="52.0" cy="30.2" r="7" class="hit"><title>right-cut, index-RoPE (mean): 26 &#8594; 95%</title></circle>
+<circle cx="92.2" cy="191.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 40 &#8594; 27%</title></circle>
+<circle cx="149.7" cy="256.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 60 &#8594; 0%</title></circle>
+<circle cx="207.2" cy="256.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 80 &#8594; 0%</title></circle>
+<circle cx="264.6" cy="256.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 100 &#8594; 0%</title></circle>
+<circle cx="408.3" cy="256.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 150 &#8594; 0%</title></circle>
+<circle cx="552.0" cy="256.0" r="7" class="hit"><title>right-cut, index-RoPE (mean): 200 &#8594; 0%</title></circle>
+<path d="M52.0,18.7 L92.2,18.7 L149.7,18.7 L207.2,18.7 L264.6,18.7 L408.3,21.4 L552.0,21.4" class="series" style="stroke: var(--s1); stroke-width: 2.5"/>
+<circle cx="52.0" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="92.2" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="149.7" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="207.2" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="264.6" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="408.3" cy="21.4" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="552.0" cy="21.4" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="52.0" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 0: 26 &#8594; 100%</title></circle>
+<circle cx="92.2" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 0: 40 &#8594; 100%</title></circle>
+<circle cx="149.7" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 0: 60 &#8594; 100%</title></circle>
+<circle cx="207.2" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 0: 80 &#8594; 100%</title></circle>
+<circle cx="264.6" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 0: 100 &#8594; 100%</title></circle>
+<circle cx="408.3" cy="21.4" r="7" class="hit"><title>right-cut + fix, seed 0: 150 &#8594; 99%</title></circle>
+<circle cx="552.0" cy="21.4" r="7" class="hit"><title>right-cut + fix, seed 0: 200 &#8594; 99%</title></circle>
+<path d="M52.0,18.7 L92.2,18.7 L149.7,18.7 L207.2,18.7 L264.6,18.7 L408.3,18.7 L552.0,18.7" class="series" style="stroke: var(--s1); stroke-width: 2.5"/>
+<circle cx="52.0" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="92.2" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="149.7" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="207.2" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="264.6" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="408.3" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="552.0" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="52.0" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 26 &#8594; 100%</title></circle>
+<circle cx="92.2" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 40 &#8594; 100%</title></circle>
+<circle cx="149.7" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 60 &#8594; 100%</title></circle>
+<circle cx="207.2" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 80 &#8594; 100%</title></circle>
+<circle cx="264.6" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 100 &#8594; 100%</title></circle>
+<circle cx="408.3" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 150 &#8594; 100%</title></circle>
+<circle cx="552.0" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 1: 200 &#8594; 100%</title></circle>
+<path d="M52.0,18.7 L92.2,31.9 L149.7,97.8 L207.2,76.7 L264.6,95.2 L408.3,126.8 L552.0,140.0" class="series" style="stroke: var(--s1); stroke-width: 1.5; stroke-dasharray: 2 3"/>
+<circle cx="52.0" cy="18.7" r="7" class="hit"><title>right-cut + fix, seed 2: 26 &#8594; 100%</title></circle>
+<circle cx="92.2" cy="31.9" r="7" class="hit"><title>right-cut + fix, seed 2: 40 &#8594; 94%</title></circle>
+<circle cx="149.7" cy="97.8" r="7" class="hit"><title>right-cut + fix, seed 2: 60 &#8594; 67%</title></circle>
+<circle cx="207.2" cy="76.7" r="7" class="hit"><title>right-cut + fix, seed 2: 80 &#8594; 76%</title></circle>
+<circle cx="264.6" cy="95.2" r="7" class="hit"><title>right-cut + fix, seed 2: 100 &#8594; 68%</title></circle>
+<circle cx="408.3" cy="126.8" r="7" class="hit"><title>right-cut + fix, seed 2: 150 &#8594; 54%</title></circle>
+<circle cx="552.0" cy="140.0" r="7" class="hit"><title>right-cut + fix, seed 2: 200 &#8594; 49%</title></circle>
+<path d="M52.0,210.3 L92.2,224.4 L149.7,163.7 L207.2,204.2 L264.6,231.4 L408.3,187.5 L552.0,226.1" class="series" style="stroke: var(--s2); stroke-width: 2; stroke-dasharray: 6 4"/>
+<circle cx="52.0" cy="210.3" r="7" class="hit"><title>left-cut + fix (mean): 26 &#8594; 19%</title></circle>
+<circle cx="92.2" cy="224.4" r="7" class="hit"><title>left-cut + fix (mean): 40 &#8594; 13%</title></circle>
+<circle cx="149.7" cy="163.7" r="7" class="hit"><title>left-cut + fix (mean): 60 &#8594; 39%</title></circle>
+<circle cx="207.2" cy="204.2" r="7" class="hit"><title>left-cut + fix (mean): 80 &#8594; 22%</title></circle>
+<circle cx="264.6" cy="231.4" r="7" class="hit"><title>left-cut + fix (mean): 100 &#8594; 10%</title></circle>
+<circle cx="408.3" cy="187.5" r="7" class="hit"><title>left-cut + fix (mean): 150 &#8594; 29%</title></circle>
+<circle cx="552.0" cy="226.1" r="7" class="hit"><title>left-cut + fix (mean): 200 &#8594; 13%</title></circle>
+<text x="560" y="22.7" class="direct">fix, seed 1</text>
+<text x="560" y="36.7" class="direct">fix, seed 0</text>
+<text x="560" y="144.0" class="direct">fix, seed 2</text>
+<text x="560" y="230.1" class="direct">left-cut + fix</text>
+<text x="560" y="258.0" class="direct">index-RoPE</text>
+</svg>
+  <p class="fig-cap">90 random problems per length. Right-cut with the fix: 1.00 / 1.00 / .67 at 60 digits and .99 / 1.00 / .49 at 200 (seeds 0 / 1 / 2), from 0 / 0 / 0 at 60 with index-RoPE. Seed 2's remaining failure is a separate mechanism (dilution of a weak attention sink; see the companion attention log).</p>
+  <p>Left-cut with the same fix gets .37 / .29 / .51 at 60 digits and .21 / .01 / .16 at 200, more than its zero baseline. Split by problem shape, nearly all of it comes from problems that are mostly copying:</p>
+  <div class="table-wrap"><table><caption>k=3 left-cut reversed with the fix: accuracy by problem shape over all lengths (26&ndash;200 digits), seeds 0 / 1 / 2</caption><thead><tr><th>problem shape</th><th>accuracy</th></tr></thead><tbody><tr><td>short operand 1 digit (the answer is mostly a copy of the long operand)</td><td>.92 / .20 / .60</td></tr><tr><td>short operand L/2 digits</td><td>.04 / 0 / .10</td></tr><tr><td><strong>both operands L digits</strong> (real chunk-by-chunk addition)</td><td><strong class="lo">0 / 0 / 0</strong></td></tr><tr><td>a carry-out shifts the answer&rsquo;s chunk boundaries</td><td>0 / 0 / 0</td></tr></tbody></table></div>
+  <p>So the fix sharpens the first finding rather than changing it. With place-aligned chunks the remaining limit was the position encoding, and fixing it takes k=3 from zero at 60 digits to near-perfect at 200 on two of three seeds. With left-cut chunks the model still cannot add past its training length at all: no position encoding can line up chunks whose boundaries move with each number's length.</p>
+
+  <h2>And with more data instead</h2>
+  <p>The other way to reach further is to train on longer problems. Keeping the place-value encoding and changing only the data (10% of problems with a 20&ndash;40 digit operand, warm-started from the 16k-step models):</p>
+  <div class="table-wrap"><table><caption>k=1 reversed, place-value: reach by operand length, seeds 0 / 1 / 2</caption><thead><tr><th>model</th><th>longest trained</th><th>40</th><th>60</th><th>80</th><th>120</th><th>160</th><th>200</th><th>400</th></tr></thead><tbody><tr><td>baseline (16k steps)</td><td>10</td><td>1.00 / .67 / 1.00</td><td>.31 / 0 / .02</td><td>.04 / 0 / .01</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td></tr><tr><td>control (24k, normal data)</td><td>10</td><td>1.00 / .72 / 1.00</td><td>.01 / 0 / .01</td><td>.02 / 0 / 0</td><td>0 / 0 / 0</td><td>0 / 0 / 0</td><td>0 / &ndash; / &ndash;</td><td>0 / &ndash; / &ndash;</td></tr><tr><td><strong>10% long problems (24k)</strong></td><td>40</td><td>1.00 / 1.00 / 1.00</td><td>1.00 / 1.00 / 1.00</td><td>1.00 / 1.00 / 1.00</td><td>1.00 / 1.00 / .98</td><td>1.00 / .82 / .94</td><td>0 / .03 / 0</td><td>0 / 0 / 0</td></tr></tbody></table></div>
+  <div class="legend"><span class="lg"><span class="sw" style="border-top: 2px solid var(--ctx)"></span>trained on ≤ 10 digits (mean of 3 seeds)</span><span class="lg"><span class="sw" style="border-top: 2px solid var(--s1)"></span>10% of problems at 20–40 digits (mean)</span></div><svg class="chart" viewBox="0 0 680 300" role="img" aria-label="Training on longer problems moves the cliff from about 40 to about 160 digits: four times the longest training length both times.">
+<line x1="52" x2="552" y1="256.0" y2="256.0" class="grid"/>
+<text x="44" y="260.0" class="tick" text-anchor="end">0%</text>
+<line x1="52" x2="552" y1="196.7" y2="196.7" class="grid"/>
+<text x="44" y="200.7" class="tick" text-anchor="end">25%</text>
+<line x1="52" x2="552" y1="137.4" y2="137.4" class="grid"/>
+<text x="44" y="141.4" class="tick" text-anchor="end">50%</text>
+<line x1="52" x2="552" y1="78.1" y2="78.1" class="grid"/>
+<text x="44" y="82.1" class="tick" text-anchor="end">75%</text>
+<line x1="52" x2="552" y1="18.7" y2="18.7" class="grid"/>
+<text x="44" y="22.7" class="tick" text-anchor="end">100%</text>
+<text x="52.0" y="274" class="tick" text-anchor="middle">26</text>
+<text x="70.7" y="274" class="tick" text-anchor="middle">40</text>
+<text x="124.2" y="274" class="tick" text-anchor="middle">80</text>
+<text x="231.1" y="274" class="tick" text-anchor="middle">160</text>
+<text x="284.6" y="274" class="tick" text-anchor="middle">200</text>
+<text x="418.3" y="274" class="tick" text-anchor="middle">300</text>
+<text x="552.0" y="274" class="tick" text-anchor="middle">400</text>
+<line x1="52" x2="552" y1="256" y2="256" class="axis"/>
+<text x="302.0" y="294" class="axis-label" text-anchor="middle">operand length (digits)</text>
+<text x="14" y="135.0" class="axis-label" text-anchor="middle" transform="rotate(-90 14 135.0)">exact-match accuracy</text>
+<line x1="231.1" x2="231.1" y1="14" y2="256" class="ref"/>
+<path d="M52.0,21.9 L70.7,44.8 L97.5,229.9 L124.2,252.0 L177.7,256.0 L231.1,256.0 L284.6,256.0 L418.3,256.0 L552.0,256.0" class="series" style="stroke: var(--ctx); stroke-width: 2"/>
+<circle cx="52.0" cy="21.9" r="7" class="hit"><title>baseline (mean): 26 &#8594; 99%</title></circle>
+<circle cx="70.7" cy="44.8" r="7" class="hit"><title>baseline (mean): 40 &#8594; 89%</title></circle>
+<circle cx="97.5" cy="229.9" r="7" class="hit"><title>baseline (mean): 60 &#8594; 11%</title></circle>
+<circle cx="124.2" cy="252.0" r="7" class="hit"><title>baseline (mean): 80 &#8594; 2%</title></circle>
+<circle cx="177.7" cy="256.0" r="7" class="hit"><title>baseline (mean): 120 &#8594; 0%</title></circle>
+<circle cx="231.1" cy="256.0" r="7" class="hit"><title>baseline (mean): 160 &#8594; 0%</title></circle>
+<circle cx="284.6" cy="256.0" r="7" class="hit"><title>baseline (mean): 200 &#8594; 0%</title></circle>
+<circle cx="418.3" cy="256.0" r="7" class="hit"><title>baseline (mean): 300 &#8594; 0%</title></circle>
+<circle cx="552.0" cy="256.0" r="7" class="hit"><title>baseline (mean): 400 &#8594; 0%</title></circle>
+<path d="M52.0,18.7 L70.7,18.7 L97.5,18.7 L124.2,18.7 L177.7,20.3 L231.1,37.7 L284.6,253.6 L418.3,256.0 L552.0,256.0" class="series" style="stroke: var(--s1); stroke-width: 2.5"/>
+<circle cx="52.0" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="70.7" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="97.5" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="124.2" cy="18.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="177.7" cy="20.3" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="231.1" cy="37.7" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="284.6" cy="253.6" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="418.3" cy="256.0" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="552.0" cy="256.0" r="4" class="dot" style="fill: var(--s1)"/>
+<circle cx="52.0" cy="18.7" r="7" class="hit"><title>long mix (mean): 26 &#8594; 100%</title></circle>
+<circle cx="70.7" cy="18.7" r="7" class="hit"><title>long mix (mean): 40 &#8594; 100%</title></circle>
+<circle cx="97.5" cy="18.7" r="7" class="hit"><title>long mix (mean): 60 &#8594; 100%</title></circle>
+<circle cx="124.2" cy="18.7" r="7" class="hit"><title>long mix (mean): 80 &#8594; 100%</title></circle>
+<circle cx="177.7" cy="20.3" r="7" class="hit"><title>long mix (mean): 120 &#8594; 99%</title></circle>
+<circle cx="231.1" cy="37.7" r="7" class="hit"><title>long mix (mean): 160 &#8594; 92%</title></circle>
+<circle cx="284.6" cy="253.6" r="7" class="hit"><title>long mix (mean): 200 &#8594; 1%</title></circle>
+<circle cx="418.3" cy="256.0" r="7" class="hit"><title>long mix (mean): 300 &#8594; 0%</title></circle>
+<circle cx="552.0" cy="256.0" r="7" class="hit"><title>long mix (mean): 400 &#8594; 0%</title></circle>
+<text x="560" y="244.0" class="direct">with long problems</text>
+<text x="560" y="258.0" class="direct">≤ 10 digits</text>
+</svg>
+  <p class="fig-cap">Dashed line: 160 digits, four times the longest training length. Means over three seeds.</p>
+  <p>Long data makes every seed (near-)perfect to 120 digits, but the cliff only moves: from about 40 to about 160 digits, four times the longest training length both times, which is exactly the encoding's random stretch factor. Data extends coverage; it does not teach a mechanism that works beyond it.</p>
+
+  <h2>Limits</h2>
+  <ul>
+    <li>One task (addition), one model size, three seeds per cell; k=2 and trained (rather than stock) BPE were not run.</li>
+    <li>The place-value index is computed from the tokenization, not learned; the "with a better position encoding" results use task structure (rows and columns).</li>
+    <li>Reach is measured on 90 random problems per length.</li>
+  </ul>
+
+  <div class="verdict">
+    <div class="note-label">Where this leaves things</div>
+    <h3>The tokenizer decides which algorithm is learnable.</h3>
+    <p>Right-cut chunks written units-first make each answer token a local function of one column and a carry, and a model trained on 10 digits can then extend to 200 with the right position encoding. Left-cut chunks, the way GPT-style tokenizers cut numbers, change the rule with every number length, and no position encoding or amount of training length tested here undoes that.</p>
+  </div>
+
+  <h2>References</h2>
+  <ol class="refs">
+    <li>A. K. Singh, D. J. Strouse, <em>Tokenization counts: the impact of tokenization on arithmetic in frontier LLMs</em>, arXiv 2402.14903 (2024).</li>
+    <li>H. Cho et al., <em>Position Coupling: Improving Length Generalization of Arithmetic Transformers Using Task Structure</em>, NeurIPS 2024 (arXiv 2405.20671).</li>
+    <li>S. McLeish et al., <em>Transformers Can Do Arithmetic with the Right Embeddings</em>, NeurIPS 2024 (arXiv 2405.17399).</li>
+    <li>Y. Zhou et al., <em>Transformers Can Achieve Length Generalization But Not Robustly</em>, arXiv 2402.09371 (2024).</li>
+    <li>A. Radford et al., <em>Language Models are Unsupervised Multitask Learners</em> (GPT-2), OpenAI (2019).</li>
+  </ol>
+
+  <footer>
+    every number in this post comes from the result files in <a href="https://github.com/ljtyk/tokenization-addition/tree/main/data">data/</a>; the code behind them is in <a href="https://github.com/ljtyk/tokenization-addition/tree/main/code">code/</a>
+  </footer>
+
+</div>
+
+</body>
+</html>

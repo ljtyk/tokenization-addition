@@ -1,0 +1,21 @@
+k3-left-rev_irc-is4-decay-sq-snc_s0
+   S=1                                                          0.92 (n=210)
+   S=L                                                          0.00 (n=210)
+   S=L/2                                                        0.04 (n=210)
+   operands differ mod 3, answer same mod 3                     0.48 (n=300)
+   operands same len mod 3, answer +1 digit changes mod 3       0.00 (n=124)
+   operands same len mod 3, answer same mod 3                   0.28 (n=206)
+k3-left-rev_irc-is4-decay-sq-snc_s1
+   S=1                                                          0.20 (n=210)
+   S=L                                                          0.00 (n=210)
+   S=L/2                                                        0.00 (n=210)
+   operands differ mod 3, answer same mod 3                     0.14 (n=300)
+   operands same len mod 3, answer +1 digit changes mod 3       0.00 (n=124)
+   operands same len mod 3, answer same mod 3                   0.00 (n=206)
+k3-left-rev_irc-is4-decay-sq-snc_s2
+   S=1                                                          0.60 (n=210)
+   S=L                                                          0.00 (n=210)
+   S=L/2                                                        0.10 (n=210)
+   operands differ mod 3, answer same mod 3                     0.40 (n=300)
+   operands same len mod 3, answer +1 digit changes mod 3       0.00 (n=124)
+   operands same len mod 3, answer same mod 3                   0.14 (n=206)

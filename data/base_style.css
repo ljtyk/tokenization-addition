@@ -1,0 +1,311 @@
+
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #f6f3ec;
+    --surface: #fffdf8;
+    --surface-2: #efeade;
+    --ink: #22262e;
+    --ink-soft: #565c69;
+    --ink-faint: #8a8d92;
+    --accent: #1e6e76;
+    --accent-ink: #ffffff;
+    --fail: #a8431f;
+    --ok: #2f7a4f;
+    --line: rgba(34,38,46,0.14);
+    --line-soft: rgba(34,38,46,0.07);
+    --shadow: 0 1px 2px rgba(34,38,46,0.06), 0 8px 24px rgba(34,38,46,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1d22;
+      --surface: #24272e;
+      --surface-2: #2c2f37;
+      --ink: #ece8de;
+      --ink-soft: #adaaa2;
+      --ink-faint: #7d7f85;
+      --accent: #6bc9d1;
+      --accent-ink: #12292c;
+      --fail: #e08a63;
+      --ok: #7fc79b;
+      --line: rgba(236,232,222,0.14);
+      --line-soft: rgba(236,232,222,0.07);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1d22;
+    --surface: #24272e;
+    --surface-2: #2c2f37;
+    --ink: #ece8de;
+    --ink-soft: #adaaa2;
+    --ink-faint: #7d7f85;
+    --accent: #6bc9d1;
+    --accent-ink: #12292c;
+    --fail: #e08a63;
+    --ok: #7fc79b;
+    --line: rgba(236,232,222,0.14);
+    --line-soft: rgba(236,232,222,0.07);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Newsreader', Georgia, 'Times New Roman', serif;
+    font-size: 19px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  .page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 7rem;
+  }
+  .wide {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ---------- masthead ---------- */
+  .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 1.1rem;
+  }
+  h1.title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(2.6rem, 6vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0 0 1.4rem;
+    text-wrap: balance;
+  }
+  .dek {
+    font-size: 1.28rem;
+    color: var(--ink-soft);
+    max-width: 34em;
+    margin: 0 0 2.2rem;
+    text-wrap: balance;
+  }
+  .byline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-faint);
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- headline stat pair ---------- */
+  .stat-duel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 2.6rem 0;
+  }
+  .stat-cell {
+    background: var(--surface);
+    padding: 1.9rem 1.6rem;
+  }
+  .stat-cell .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.7rem;
+  }
+  .stat-cell .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 3rem;
+    line-height: 1;
+  }
+  .stat-cell.fail .num { color: var(--fail); }
+  .stat-cell.ok .num { color: var(--ok); }
+  .stat-cell .sub {
+    font-family: 'Newsreader', serif;
+    font-size: 15.5px;
+    color: var(--ink-soft);
+    margin-top: 0.6rem;
+  }
+
+  /* ---------- prose ---------- */
+  h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.85rem;
+    letter-spacing: -0.005em;
+    margin: 3.4rem 0 1.1rem;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.28rem;
+    margin: 2.2rem 0 0.8rem;
+  }
+  p { margin: 0 0 1.3rem; }
+  strong { font-weight: 600; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.86em;
+    background: var(--surface-2);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  .lede::first-letter {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 600;
+    font-size: 3.4em;
+    float: left;
+    line-height: 0.85;
+    padding: 0.04em 0.09em 0 0;
+    color: var(--accent);
+  }
+
+  /* ---------- section rule ---------- */
+  .ledger {
+    height: 1px;
+    margin: 3.6rem 0;
+    background-image: repeating-linear-gradient(90deg, var(--line) 0, var(--line) 6px, transparent 6px, transparent 14px);
+  }
+
+  /* ---------- lesson blocks ---------- */
+  .lesson {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0.9rem;
+    margin: 2.6rem 0;
+  }
+  .lesson .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+    padding-top: 0.15em;
+  }
+  .lesson h3 { margin: 0 0 0.6rem; }
+  .lesson .body p:last-child { margin-bottom: 0; }
+
+  /* ---------- aside / margin note ---------- */
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.6rem 0;
+    box-shadow: var(--shadow);
+  }
+  .note .note-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .note p { font-size: 0.94em; margin-bottom: 0.6rem; }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* ---------- data table ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 1.8rem 0;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 480px; }
+  caption {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0.9rem 1.1rem 0;
+  }
+  th, td {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    padding: 0.65rem 1.1rem;
+    text-align: right;
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.hi { color: var(--ok); font-weight: 600; }
+  td.lo { color: var(--fail); font-weight: 600; }
+  tr.split td { border-top: 2px dashed var(--line); }
+
+  /* ---------- pipeline diagram ---------- */
+  .diagram {
+    margin: 1.8rem 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .diagram svg { width: 100%; height: auto; display: block; }
+
+  /* ---------- verdict box ---------- */
+  .verdict {
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 1.8rem 2rem;
+    margin: 2.2rem 0;
+  }
+  .verdict .note-label { color: var(--ink-soft); }
+  .verdict h3 { margin-top: 0; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--line);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 17px; }
+    .stat-duel { grid-template-columns: 1fr; }
+    .lesson { grid-template-columns: 1fr; }
+    .lesson .n { padding-top: 0; }
+  }

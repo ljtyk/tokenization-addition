@@ -1,0 +1,5 @@
+random-digit problems, decode budget 408 tokens; accuracy by long operand length L
+run                                              26     40     60     80    120    160    200    300    400
+k1-rev_irope_mix_s0                            1.00   1.00   1.00   1.00   1.00   1.00   0.00   0.00   0.00
+k1-rev_irope_mix_s1                            1.00   1.00   1.00   1.00   1.00   0.82   0.03   0.00   0.00
+k1-rev_irope_mix_s2                            1.00   1.00   1.00   1.00   0.98   0.94   0.00   0.00   0.00
